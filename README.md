@@ -1,15 +1,16 @@
 # identity-storage
 
 Portable, auditable long-term memory for AI agents. Runs as a local MCP
-server backed by a single SQLite file. Agents store and recall memories
-through three abstract tools; you audit the database with plain SQL.
+server backed by a single SQLite file. Agents recall memories through MCP
+tools; a Stop hook stores session transcripts automatically — no agent
+discipline required.
 
 ## Why
 
-Agents like Claude Code, Codex, and opencode are stateless between sessions.
-`identity-storage` gives them a memory that survives restarts, works across
-clients, and stays fully inspectable — no ORM, no migration framework, no
-hidden state. Point `sqlite3` at the file and read everything.
+Agents like Claude Code are stateless between sessions. `identity-storage`
+gives them a memory that survives restarts and stays fully inspectable — no
+ORM, no migration framework, no hidden state. Point `sqlite3` at the file and
+read everything.
 
 ## Install
 
@@ -19,64 +20,43 @@ The package is not on PyPI yet. Install directly from GitHub:
 pip install git+https://github.com/MikSkrzyp/identity-storage-mcp.git
 ```
 
-Or run it without installing (downloads, builds, and executes on each call):
+Or run it without installing:
 
 ```bash
 uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp.git identity-storage-mcp
 ```
 
-## Configure your client
+## Configure Claude Code
 
-### Claude Code
-
-One command — adds identity-storage as a user-scoped MCP server (available in
-all your projects):
+### 1. Add the MCP server
 
 ```bash
 claude mcp add identity-storage -s user -- uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-mcp
 ```
 
-Or manually, in `~/.claude.json`:
+This makes three memory tools available to the agent in every project.
+
+### 2. Add the Stop hook (auto-store)
+
+Without this, the agent can recall memories but nothing gets stored
+automatically. The hook reads the session transcript when a conversation ends
+and saves each turn as an episodic memory.
+
+Add to `~/.claude/settings.json`:
 
 ```json
 {
-  "mcpServers": {
-    "identity-storage": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
-        "identity-storage-mcp"
-      ]
-    }
+  "hooks": {
+    "Stop": [
+      {
+        "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+      }
+    ]
   }
 }
 ```
 
-### opencode
-
-`opencode.json`:
-
-```json
-{
-  "mcp": {
-    "identity-storage": {
-      "type": "local",
-      "command": [
-        "uvx",
-        "--from",
-        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
-        "identity-storage-mcp"
-      ]
-    }
-  }
-}
-```
-
-### Codex / other MCP clients
-
-Point the client at `identity-storage-mcp` over stdio. The server advertises
-three tools via `tools/list`; any MCP-compatible client picks them up.
+That's it. From now on every Claude Code session is remembered.
 
 ## Tools
 
@@ -85,9 +65,9 @@ The agent sees three tools, each scoped by `memory_type` (`episodic`,
 
 | Tool           | Purpose                                              |
 | -------------- | ---------------------------------------------------- |
-| `memory_store` | Persist a memory for future sessions                 |
+| `memory_search`| Full-text search via FTS5 — call at the start of a turn |
 | `memory_recall`| Browse by type, tags, and time window (newest first) |
-| `memory_search`| Full-text search via SQLite FTS5 (ranked by relevance)|
+| `memory_store` | Manually persist a memory (rarely needed — the Stop hook handles storage) |
 
 See [docs/usage.md](docs/usage.md) for the full input/output schemas.
 
@@ -127,6 +107,14 @@ ORDER BY rank;
 The schema lives in [`schemas/schema.sql`](src/identity_storage/schemas/schema.sql)
 and is the single source of truth. Run `.schema` in the `sqlite3` CLI to see
 exactly what is in the file.
+
+## Other clients
+
+Currently only Claude Code is supported (MCP server + Stop hook ingestor).
+Support for Codex, opencode, Cursor, and others is coming soon — the
+ingestor interface is already in place
+([`adapters/ingest/base.py`](src/identity_storage/adapters/ingest/base.py));
+each client just needs a transcript parser.
 
 ## Documentation
 

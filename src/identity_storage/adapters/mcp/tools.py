@@ -32,13 +32,11 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
     @mcp.tool(
         name="memory_store",
         description=(
-            "Persist a memory at the END of a turn. Call when you did something "
-            "non-trivial (edit, fix, refactor, debug, decision), learned a durable "
-            "fact, or the user asked you to remember something. Do NOT store idle "
-            "chat, greetings, or trivial responses. Include session_id in payload "
-            "to group memories from the same session. Episodic payload keys: "
-            "session_id, agent, task, outcome, parent_id, metadata. Returns the "
-            "new record id."
+            "Persist a memory manually. Only use when the user explicitly "
+            "asks you to remember something. Regular turn storage is handled "
+            "automatically by the client's Stop hook. Episodic payload keys: "
+            "session_id, agent, task, outcome, parent_id, metadata. Returns "
+            "the new record id."
         ),
     )
     def memory_store(input: MemoryStoreInput) -> MemoryStoreOutput:

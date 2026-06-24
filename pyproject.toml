@@ -25,6 +25,7 @@ dependencies = [
 
 [project.scripts]
 identity-storage-mcp = "identity_storage.adapters.mcp.server:main"
+identity-storage-ingest = "identity_storage.adapters.ingest.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/mikskrzyp/identity-storage"

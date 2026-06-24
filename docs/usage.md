@@ -14,12 +14,14 @@ Or run it without installing:
 uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp.git identity-storage-mcp
 ```
 
-The package installs a single console script, `identity-storage-mcp`, which
-runs the MCP server on the stdio transport.
+The package installs two console scripts:
 
-## Configure your client
+- `identity-storage-mcp` — the MCP server (stdio transport)
+- `identity-storage-ingest` — the transcript ingestor (called by client hooks)
 
-### Claude Code
+## Configure Claude Code
+
+### 1. Add the MCP server
 
 One command — adds identity-storage as a user-scoped MCP server (available in
 all your projects):
@@ -45,54 +47,89 @@ Or manually, in `~/.claude.json`:
 }
 ```
 
-If you installed with `pip` instead, use `"command": "identity-storage-mcp"`
-with no args.
+### 2. Add the Stop hook (auto-store)
 
-### opencode
+Without this, the agent can recall memories but nothing gets stored
+automatically. The hook runs when a conversation ends, reads the session
+transcript, and saves each turn as an episodic memory.
 
-Add to `opencode.json`:
+Add to `~/.claude/settings.json`:
 
 ```json
 {
-  "mcp": {
-    "identity-storage": {
-      "type": "local",
-      "command": [
-        "uvx",
-        "--from",
-        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
-        "identity-storage-mcp"
-      ]
-    }
+  "hooks": {
+    "Stop": [
+      {
+        "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+      }
+    ]
   }
 }
 ```
 
-### Codex / other MCP clients
+If you installed with `pip` instead, use `"command": "identity-storage-ingest"`
+with `--agent claude-code` as an arg.
 
-Point the client at `identity-storage-mcp` over stdio. The server advertises
-three tools via `tools/list`; any MCP-compatible client should pick them up.
+## Other clients
+
+Currently only Claude Code is supported. The ingestor interface
+([`adapters/ingest/base.py`](../src/identity_storage/adapters/ingest/base.py))
+defines the contract; each client needs a transcript parser implementing it.
+Support for Codex, opencode, Cursor, and others is coming soon.
 
 ## Configuration
 
-| Env var               | Default                            | Purpose                    |
-| --------------------- | ---------------------------------- | -------------------------- |
-| `IDENTITY_STORAGE_DB` | `~/.identity-storage/memory.db`     | SQLite database file path  |
+| Env var               | Default                        | Purpose                   |
+| --------------------- | ------------------------------ | ------------------------- |
+| `IDENTITY_STORAGE_DB` | `~/.identity-storage/memory.db`| SQLite database file path |
 
 The parent directory is created on first run. The schema is applied
 idempotently on every start, so pointing at a fresh path is safe.
 
 ## Tools
 
-The agent sees three tools. Each takes a `memory_type` from the enum
-(`episodic`, `semantic`, `procedural`, `personality`, `emotional`) so the
-same tools work for every kind of memory we add.
+The agent sees three tools, each scoped by `memory_type` from the enum
+(`episodic`, `semantic`, `procedural`, `personality`, `emotional`).
+
+### `memory_search`
+
+Search past memories by content. Call this at the start of every turn with
+the user's prompt as query. Returns ranked results from FTS5. If empty, no
+memory is needed for this turn.
+
+Inputs:
+
+| Field         | Type         | Default | Notes                                            |
+| ------------- | ------------ | ------- | ------------------------------------------------ |
+| `memory_type` | `MemoryType` | —       | Which memory type to search                      |
+| `query`       | `str`        | —       | FTS5 query: terms, `'phrase'`, `AND`/`OR`        |
+| `limit`       | `int`        | `20`    | Max records to return, in `[1, 200]`             |
+
+Returns `{ records: [MemoryRecordOut, ...] }`.
+
+### `memory_recall`
+
+Browse memories of one type, newest first. Filter by tags and time window.
+Use for "what did I do recently" or "what happened in this session". Not for
+per-turn recall — use `memory_search` for that.
+
+Inputs:
+
+| Field         | Type             | Default | Notes                                          |
+| ------------- | ---------------- | ------- | ---------------------------------------------- |
+| `memory_type` | `MemoryType`     | —       | Which memory type to read                      |
+| `tags`        | `list[str] \| None` | `None` | Only records tagged with ALL of these (AND)   |
+| `since`       | `datetime \| None`  | `None` | ISO 8601 lower bound on `created_at`          |
+| `until`       | `datetime \| None`  | `None` | ISO 8601 upper bound on `created_at`          |
+| `limit`       | `int`            | `50`    | Max records to return, in `[1, 500]`           |
+
+Returns `{ records: [MemoryRecordOut, ...] }`.
 
 ### `memory_store`
 
-Persist a memory for future sessions. Use whenever the user says "remember
-this", when you learn a durable fact, fix a bug, or take a non-trivial action
-you may need to recall later.
+Manually persist a memory. Only use when the user explicitly asks you to
+remember something. Regular turn storage is handled automatically by the
+client's Stop hook.
 
 Inputs:
 
@@ -107,40 +144,6 @@ Inputs:
 
 Returns `{ id, memory_type, created_at }`. The `id` is a UUID v7
 (time-sortable).
-
-### `memory_recall`
-
-Browse memories of one type, newest first. Filter by tags and time window. Use
-this for "what did I do recently" or "what happened in this session". For
-free-text lookup use `memory_search` instead.
-
-Inputs:
-
-| Field         | Type             | Default | Notes                                          |
-| ------------- | ---------------- | ------- | ---------------------------------------------- |
-| `memory_type` | `MemoryType`     | —       | Which memory type to read                      |
-| `tags`        | `list[str] \| None` | `None` | Only records tagged with ALL of these (AND)   |
-| `since`       | `datetime \| None`  | `None` | ISO 8601 lower bound on `created_at`          |
-| `until`       | `datetime \| None`  | `None` | ISO 8601 upper bound on `created_at`          |
-| `limit`       | `int`            | `50`    | Max records to return, in `[1, 500]`           |
-
-Returns `{ records: [MemoryRecordOut, ...] }`.
-
-### `memory_search`
-
-Full-text search within one memory type. Use this when you don't know the
-exact tag or time — e.g. "show me memories about the auth bug". Returns ranked
-by relevance. For chronological browsing use `memory_recall`.
-
-Inputs:
-
-| Field         | Type         | Default | Notes                                            |
-| ------------- | ------------ | ------- | ------------------------------------------------ |
-| `memory_type` | `MemoryType` | —       | Which memory type to search                      |
-| `query`       | `str`        | —       | FTS5 query: terms, `'phrase'`, `AND`/`OR`        |
-| `limit`       | `int`        | `20`    | Max records to return, in `[1, 200]`             |
-
-Returns `{ records: [MemoryRecordOut, ...] }`.
 
 ### `MemoryRecordOut`
 
