@@ -49,7 +49,12 @@ Add to `~/.claude/settings.json`:
   "hooks": {
     "Stop": [
       {
-        "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+          }
+        ]
       }
     ]
   }

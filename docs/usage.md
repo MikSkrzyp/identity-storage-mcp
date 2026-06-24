@@ -60,15 +60,19 @@ Add to `~/.claude/settings.json`:
   "hooks": {
     "Stop": [
       {
-        "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-If you installed with `pip` instead, use `"command": "identity-storage-ingest"`
-with `--agent claude-code` as an arg.
+If you installed with `pip` instead, use `"command": "identity-storage-ingest --agent claude-code"`.
 
 ## Other clients
 
