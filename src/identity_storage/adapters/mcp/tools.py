@@ -32,11 +32,13 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
     @mcp.tool(
         name="memory_store",
         description=(
-            "Persist a memory for future sessions. Use whenever the user says "
-            "'remember this', when you learn a durable fact, fix a bug, or take a "
-            "non-trivial action you may need to recall later. `memory_type` drives "
-            "what `payload` is allowed. Episodic payload keys: session_id, agent, "
-            "task, outcome, parent_id, metadata. Returns the new record id."
+            "Persist a memory at the END of a turn. Call when you did something "
+            "non-trivial (edit, fix, refactor, debug, decision), learned a durable "
+            "fact, or the user asked you to remember something. Do NOT store idle "
+            "chat, greetings, or trivial responses. Include session_id in payload "
+            "to group memories from the same session. Episodic payload keys: "
+            "session_id, agent, task, outcome, parent_id, metadata. Returns the "
+            "new record id."
         ),
     )
     def memory_store(input: MemoryStoreInput) -> MemoryStoreOutput:
@@ -64,8 +66,8 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
         name="memory_recall",
         description=(
             "Browse memories of one type, newest first. Filter by tags and time "
-            "window. Use this for 'what did I do recently' or 'what happened in "
-            "this session'. For free-text lookup use memory_search instead."
+            "window. Use for 'what did I do recently' or 'what happened in this "
+            "session'. Not for per-turn recall — use memory_search for that."
         ),
     )
     def memory_recall(input: MemoryRecallInput) -> MemoryRecallOutput:
@@ -82,10 +84,10 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
     @mcp.tool(
         name="memory_search",
         description=(
-            "Full-text search within one memory type. Use this when you don't "
-            "know the exact tag or time — e.g. 'show me memories about the auth "
-            "bug'. Returns ranked by relevance. For chronological browsing use "
-            "memory_recall."
+            "Search past memories by content. Call this at the START of every "
+            "turn with the user's prompt as query. Returns ranked results from "
+            "FTS5. If empty, no memory is needed for this turn. For chronological "
+            "browsing use memory_recall."
         ),
     )
     def memory_search(input: MemorySearchInput) -> MemorySearchOutput:

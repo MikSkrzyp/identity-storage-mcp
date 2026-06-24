@@ -14,13 +14,31 @@ from identity_storage.service.memory_service import MemoryService
 mcp = FastMCP(
     "identity-storage",
     instructions=(
-        "Long-term, auditable memory for AI agents. Backed by a local SQLite "
-        "file (default ~/.identity-storage/memory.db). Three abstract tools "
-        "cover every memory type: episodic, semantic, procedural, personality, "
-        "emotional. Use `memory_store` whenever you want to persist something "
-        "worth remembering across sessions, `memory_recall` to browse by tags "
-        "or time, `memory_search` for full-text lookup. Set "
-        "IDENTITY_STORAGE_DB to override the database path."
+        "Long-term memory for AI agents, backed by local SQLite.\n"
+        "\n"
+        "FLOW — follow every turn:\n"
+        "\n"
+        "1. SEARCH: Call memory_search with the user's prompt as query. This "
+        "retrieves relevant memories from past sessions and the current "
+        "session. If nothing matches, that's fine — not every turn needs "
+        "memory.\n"
+        "\n"
+        "2. ANSWER: Use the search results as context alongside the user's "
+        "prompt.\n"
+        "\n"
+        "3. STORE: Call memory_store at the end of the turn ONLY if:\n"
+        "   - You took a non-trivial action (edit, bash, refactor, debug, "
+        "decision)\n"
+        "   - You learned a durable fact about the user or project\n"
+        "   - The user explicitly asked you to remember something\n"
+        "   Do NOT store idle conversation, greetings, or trivial responses.\n"
+        "\n"
+        "This is your memory. Forgetting to store = losing the turn "
+        "permanently. Forgetting to search = working blind. Treat both "
+        "seriously.\n"
+        "\n"
+        "Set IDENTITY_STORAGE_DB to override the default database path "
+        "(~/.identity-storage/memory.db)."
     ),
 )
 
