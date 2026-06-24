@@ -2,14 +2,16 @@
 
 ## Install
 
+The package is not on PyPI yet. Install directly from GitHub:
+
 ```bash
-pip install identity-storage
+pip install git+https://github.com/MikSkrzyp/identity-storage-mcp.git
 ```
 
-Or with `uv`:
+Or run it without installing:
 
 ```bash
-uvx identity-storage-mcp
+uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp.git identity-storage-mcp
 ```
 
 The package installs a single console script, `identity-storage-mcp`, which
@@ -19,15 +21,25 @@ runs the MCP server on the stdio transport.
 
 ### Claude Code
 
-Add to `~/.config/claude/claude_desktop_config.json` (or the equivalent path
-on your platform):
+One command — adds identity-storage as a user-scoped MCP server (available in
+all your projects):
+
+```bash
+claude mcp add identity-storage -s user -- uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-mcp
+```
+
+Or manually, in `~/.claude.json`:
 
 ```json
 {
   "mcpServers": {
     "identity-storage": {
       "command": "uvx",
-      "args": ["identity-storage-mcp"]
+      "args": [
+        "--from",
+        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
+        "identity-storage-mcp"
+      ]
     }
   }
 }
@@ -45,7 +57,12 @@ Add to `opencode.json`:
   "mcp": {
     "identity-storage": {
       "type": "local",
-      "command": ["uvx", "identity-storage-mcp"]
+      "command": [
+        "uvx",
+        "--from",
+        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
+        "identity-storage-mcp"
+      ]
     }
   }
 }

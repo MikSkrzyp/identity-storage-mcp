@@ -13,28 +13,41 @@ hidden state. Point `sqlite3` at the file and read everything.
 
 ## Install
 
+The package is not on PyPI yet. Install directly from GitHub:
+
 ```bash
-pip install identity-storage
+pip install git+https://github.com/MikSkrzyp/identity-storage-mcp.git
 ```
 
-Or run it directly without installing:
+Or run it without installing (downloads, builds, and executes on each call):
 
 ```bash
-uvx identity-storage-mcp
+uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp.git identity-storage-mcp
 ```
 
 ## Configure your client
 
 ### Claude Code
 
-`~/.config/claude/claude_desktop_config.json`:
+One command — adds identity-storage as a user-scoped MCP server (available in
+all your projects):
+
+```bash
+claude mcp add identity-storage -s user -- uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-mcp
+```
+
+Or manually, in `~/.claude.json`:
 
 ```json
 {
   "mcpServers": {
     "identity-storage": {
       "command": "uvx",
-      "args": ["identity-storage-mcp"]
+      "args": [
+        "--from",
+        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
+        "identity-storage-mcp"
+      ]
     }
   }
 }
@@ -49,7 +62,12 @@ uvx identity-storage-mcp
   "mcp": {
     "identity-storage": {
       "type": "local",
-      "command": ["uvx", "identity-storage-mcp"]
+      "command": [
+        "uvx",
+        "--from",
+        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
+        "identity-storage-mcp"
+      ]
     }
   }
 }
