@@ -1,4 +1,4 @@
-"""Claude Code ingestor: reads session JSONL transcripts.
+"""Claude Code ingestor: reads session JSONL transcripts into raw memories.
 
 Claude Code stores sessions as ``.jsonl`` files under
 ``~/.claude/projects/<project>/<session-id>.jsonl``. Each line is a JSON
@@ -7,7 +7,8 @@ with a ``message.content`` field (string or list of content blocks).
 
 The Stop hook receives a JSON payload on stdin with a ``transcript_path``
 key pointing at this file. We read it, pair each user prompt with the
-following assistant response, and emit one ``StoreRequest`` per pair.
+following assistant response, and emit one ``RawMemory`` per pair. The
+agent later consolidates these into typed memories.
 """
 
 from __future__ import annotations
@@ -16,16 +17,17 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from identity_storage.model.memory_model import MemoryType
-from identity_storage.model.store_request import StoreRequest
+from uuid_utils import uuid7
+
+from identity_storage.model.raw_memory import RawMemory
 
 ASSISTANT_RESPONSE_MAX_CHARS = 2000
 
 
 class ClaudeCodeIngestor:
-    """Parse a Claude Code JSONL transcript into memory store requests."""
+    """Parse a Claude Code JSONL transcript into raw memories."""
 
-    def ingest(self, payload: dict[str, str]) -> Sequence[StoreRequest]:
+    def ingest(self, payload: dict[str, str]) -> Sequence[RawMemory]:
         transcript_path = payload.get("transcript_path")
         if not transcript_path:
             return []
@@ -38,8 +40,8 @@ class ClaudeCodeIngestor:
         messages = _read_messages(path)
         pairs = _pair_prompts_with_responses(messages)
         return [
-            StoreRequest(
-                memory_type=MemoryType.EPISODIC,
+            RawMemory(
+                id=uuid7(),  # type: ignore[arg-type]
                 content=_build_content(user_prompt, assistant_response),
                 tags=[f"session:{session_id}"],
                 payload={
@@ -50,6 +52,7 @@ class ClaudeCodeIngestor:
                         "assistant_response": assistant_response,
                     },
                 },
+                source="stop-hook",
             )
             for user_prompt, assistant_response in pairs
         ]

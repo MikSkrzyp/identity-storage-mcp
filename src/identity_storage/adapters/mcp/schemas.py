@@ -103,6 +103,29 @@ class MemoryRecallOutput(BaseModel):
 
 class MemorySearchOutput(BaseModel):
     records: list[MemoryRecordOut]
+    unprocessed_count: int = 0
+
+
+# --------------------------------------------------------------------------- #
+# Raw memory consolidation
+# --------------------------------------------------------------------------- #
+
+
+class RawMemoryOut(BaseModel):
+    id: str
+    content: str
+    tags: list[str]
+    payload: dict[str, Any]
+    source: str
+    created_at: datetime
+
+
+class MemoryGetRawOutput(BaseModel):
+    memories: list[RawMemoryOut]
+
+
+class MemoryMarkProcessedInput(BaseModel):
+    ids: Annotated[list[str], Field(description="Raw memory IDs to mark as processed.")]
 
 
 def to_output(r: MemoryRecord) -> MemoryRecordOut:

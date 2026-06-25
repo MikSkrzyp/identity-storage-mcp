@@ -7,15 +7,20 @@ service call → Pydantic output. No business logic here; that lives in
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from mcp.server.fastmcp import FastMCP
 
 from identity_storage.adapters.mcp.schemas import (
+    MemoryGetRawOutput,
+    MemoryMarkProcessedInput,
     MemoryRecallInput,
     MemoryRecallOutput,
     MemorySearchInput,
     MemorySearchOutput,
     MemoryStoreInput,
     MemoryStoreOutput,
+    RawMemoryOut,
     to_output,
 )
 from identity_storage.model.store_request import StoreRequest
@@ -84,8 +89,10 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
         description=(
             "Search past memories by content. Call this at the START of every "
             "turn with the user's prompt as query. Returns ranked results from "
-            "FTS5. If empty, no memory is needed for this turn. For chronological "
-            "browsing use memory_recall."
+            "FTS5 plus the count of unprocessed raw memories from the previous "
+            "session. If unprocessed_count > 0, call memory_get_raw to see them, "
+            "classify them into typed memories with memory_store, then call "
+            "memory_mark_processed. If empty, no memory is needed for this turn."
         ),
     )
     def memory_search(input: MemorySearchInput) -> MemorySearchOutput:
@@ -94,4 +101,49 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
             records = service.search(input.memory_type, input.query, limit=input.limit)
         except ValidationError as e:
             raise ValueError(str(e)) from e
-        return MemorySearchOutput(records=[to_output(r) for r in records])
+        return MemorySearchOutput(
+            records=[to_output(r) for r in records],
+            unprocessed_count=service.count_unprocessed_raw(),
+        )
+
+    @mcp.tool(
+        name="memory_get_raw",
+        description=(
+            "Retrieve unprocessed raw memories from previous sessions. Call "
+            "this when memory_search reports unprocessed_count > 0. Read each "
+            "raw memory, classify it: extract facts as semantic memories, "
+            "procedures as procedural memories, events as episodic memories. "
+            "Store each classification with memory_store, then call "
+            "memory_mark_processed with the raw IDs you handled."
+        ),
+    )
+    def memory_get_raw() -> MemoryGetRawOutput:
+        service = service_factory()  # type: ignore[operator]
+        raw_memories = service.get_unprocessed_raw()
+        return MemoryGetRawOutput(
+            memories=[
+                RawMemoryOut(
+                    id=str(m.id),
+                    content=m.content,
+                    tags=list(m.tags),
+                    payload=dict(m.payload),
+                    source=m.source,
+                    created_at=m.created_at,
+                )
+                for m in raw_memories
+            ]
+        )
+
+    @mcp.tool(
+        name="memory_mark_processed",
+        description=(
+            "Mark raw memories as processed after you have classified them "
+            "into typed memories. Pass the raw memory IDs you handled. This "
+            "prevents them from showing up in future memory_search results."
+        ),
+    )
+    def memory_mark_processed(input: MemoryMarkProcessedInput) -> str:
+        service = service_factory()  # type: ignore[operator]
+        ids = [UUID(raw_id) for raw_id in input.ids]
+        count = service.mark_processed(ids)
+        return f"Marked {count} raw memor{'y' if count == 1 else 'ies'} as processed"

@@ -13,7 +13,7 @@ from typing import Final
 
 DEFAULT_DB_PATH: Final[Path] = Path.home() / ".identity-storage" / "memory.db"
 
-SCHEMA_VERSION: Final[int] = 1
+SCHEMA_VERSION: Final[int] = 2
 
 _SCHEMA_SQL_PATH = Path(__file__).parent.parent / "schemas" / "schema.sql"
 

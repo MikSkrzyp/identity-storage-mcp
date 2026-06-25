@@ -16,14 +16,14 @@ import os
 import sys
 from collections.abc import Sequence
 
-from identity_storage.adapters.ingest.base import Ingestor
 from identity_storage.adapters.ingest.claude_code import ClaudeCodeIngestor
 from identity_storage.db.connection import connect, resolve_db_path
-from identity_storage.model.store_request import StoreRequest
+from identity_storage.model.raw_memory import RawMemory
 from identity_storage.repository.memory_repository import MemoryRepository
+from identity_storage.repository.raw_memory_repository import RawMemoryRepository
 from identity_storage.service.memory_service import MemoryService
 
-INGESTORS: dict[str, type[Ingestor]] = {
+INGESTORS: dict[str, type[ClaudeCodeIngestor]] = {
     "claude-code": ClaudeCodeIngestor,
 }
 
@@ -59,25 +59,26 @@ def main() -> None:
     ingestor_cls = INGESTORS[args.agent]
     ingestor = ingestor_cls()
 
-    requests: Sequence[StoreRequest] = ingestor.ingest(payload)
-    if not requests:
+    raw_memories: Sequence[RawMemory] = ingestor.ingest(payload)
+    if not raw_memories:
         print("ingest: no memories extracted", file=sys.stderr)
         return
 
     db_path = resolve_db_path(os.environ.get("IDENTITY_STORAGE_DB"))
     conn = connect(db_path)
     repo = MemoryRepository(conn)
-    service = MemoryService(repo)
+    raw_repo = RawMemoryRepository(conn)
+    service = MemoryService(repo, raw_repo)
 
     stored = 0
-    for request in requests:
+    for memory in raw_memories:
         try:
-            service.store(request)
+            service.store_raw(memory)
             stored += 1
         except Exception as e:
-            print(f"ingest: failed to store memory: {e}", file=sys.stderr)
+            print(f"ingest: failed to store raw memory: {e}", file=sys.stderr)
 
-    print(f"ingest: stored {stored} memor{'y' if stored == 1 else 'ies'}")
+    print(f"ingest: stored {stored} raw memor{'y' if stored == 1 else 'ies'}")
 
 
 if __name__ == "__main__":

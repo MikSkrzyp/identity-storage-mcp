@@ -52,9 +52,43 @@ CREATE TRIGGER IF NOT EXISTS memory_ad AFTER DELETE ON memory BEGIN
     VALUES ('delete', old.rowid, old.content, old.tags);
 END;
 
-CREATE TRIGGER IF NOT EXISTS memory_au AFTER UPDATE ON memory BEGIN
-    INSERT INTO memory_fts(memory_fts, rowid, content, tags)
-    VALUES ('delete', old.rowid, old.content, old.tags);
-    INSERT INTO memory_fts(rowid, content, tags)
-    VALUES (new.rowid, new.content, new.tags);
+-- Raw memories: unprocessed session transcripts awaiting consolidation.
+-- The Stop hook writes here; the agent reads via memory_get_raw, classifies
+-- into typed memories via memory_store, then marks them processed.
+CREATE TABLE IF NOT EXISTS raw_memories (
+    id           TEXT PRIMARY KEY,          -- UUID v7
+    content      TEXT NOT NULL,             -- "User: ...\nAssistant: ..."
+    tags         TEXT NOT NULL DEFAULT '[]', -- JSON array (e.g. ["session:abc"])
+    payload      TEXT NOT NULL DEFAULT '{}', -- JSON object (session_id, agent, ...)
+    source       TEXT NOT NULL DEFAULT 'stop-hook',
+    created_at   TEXT NOT NULL,              -- ISO 8601 UTC
+    processed_at TEXT                        -- NULL = unprocessed, set when done
+);
+
+CREATE INDEX IF NOT EXISTS ix_raw_unprocessed ON raw_memories (created_at)
+    WHERE processed_at IS NULL;
+
+-- FTS5 over raw_memories for searching unprocessed transcripts.
+CREATE VIRTUAL TABLE IF NOT EXISTS raw_memories_fts USING fts5(
+    content,
+    content='raw_memories',
+    content_rowid='rowid',
+    tokenize='porter unicode61'
+);
+
+CREATE TRIGGER IF NOT EXISTS raw_ai AFTER INSERT ON raw_memories BEGIN
+    INSERT INTO raw_memories_fts(rowid, content)
+    VALUES (new.rowid, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS raw_ad AFTER DELETE ON raw_memories BEGIN
+    INSERT INTO raw_memories_fts(raw_memories_fts, rowid, content)
+    VALUES ('delete', old.rowid, old.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS raw_au AFTER UPDATE ON raw_memories BEGIN
+    INSERT INTO raw_memories_fts(raw_memories_fts, rowid, content)
+    VALUES ('delete', old.rowid, old.content);
+    INSERT INTO raw_memories_fts(rowid, content)
+    VALUES (new.rowid, new.content);
 END;

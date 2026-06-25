@@ -13,8 +13,10 @@ from uuid import UUID
 from uuid_utils import uuid7
 
 from identity_storage.model.memory_model import MemoryRecord, MemoryType
+from identity_storage.model.raw_memory import RawMemory
 from identity_storage.model.store_request import StoreRequest
 from identity_storage.repository.memory_repository import MemoryRepository
+from identity_storage.repository.raw_memory_repository import RawMemoryRepository
 from identity_storage.service.validation import ValidationError, validate_payload
 
 RECALL_LIMIT_MAX = 500
@@ -25,8 +27,13 @@ class MemoryService:
     """Memory use cases. Adapters call this, never the repository directly —
     so validation and future cross-cutting concerns live in one place."""
 
-    def __init__(self, repository: MemoryRepository) -> None:
+    def __init__(
+        self,
+        repository: MemoryRepository,
+        raw_repository: RawMemoryRepository | None = None,
+    ) -> None:
         self._repo = repository
+        self._raw_repo = raw_repository
 
     def store(self, request: StoreRequest) -> MemoryRecord:
         payload = dict(request.payload) if request.payload else {}
@@ -81,3 +88,29 @@ class MemoryService:
 
     def delete(self, record_id: UUID) -> bool:
         return self._repo.delete(record_id)
+
+    # ------------------------------------------------------------------ #
+    # Raw memory consolidation
+    # ------------------------------------------------------------------ #
+
+    def store_raw(self, memory: RawMemory) -> None:
+        if self._raw_repo is None:
+            raise ValidationError("raw memory repository not configured")
+        self._raw_repo.store(memory)
+
+    def get_unprocessed_raw(self, limit: int = 50) -> list[RawMemory]:
+        if self._raw_repo is None:
+            return []
+        if limit < 1 or limit > RECALL_LIMIT_MAX:
+            raise ValidationError(f"limit must be in [1, {RECALL_LIMIT_MAX}], got {limit}")
+        return self._raw_repo.get_unprocessed(limit=limit)
+
+    def count_unprocessed_raw(self) -> int:
+        if self._raw_repo is None:
+            return 0
+        return self._raw_repo.count_unprocessed()
+
+    def mark_processed(self, memory_ids: Sequence[UUID]) -> int:
+        if self._raw_repo is None:
+            return 0
+        return self._raw_repo.mark_processed(memory_ids)

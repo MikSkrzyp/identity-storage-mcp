@@ -7,17 +7,21 @@ management), ``adapters/`` (MCP server, CLI future), ``schemas/schema.sql``
 """
 
 from identity_storage.model.memory_model import MemoryRecord, MemoryType
+from identity_storage.model.raw_memory import RawMemory
 from identity_storage.model.store_request import StoreRequest
 from identity_storage.repository.memory_repository import MemoryRepository
+from identity_storage.repository.raw_memory_repository import RawMemoryRepository
 from identity_storage.service.memory_service import MemoryService
 from identity_storage.service.validation import ValidationError
 
 __all__ = [
     "MemoryRecord",
     "MemoryType",
-    "MemoryRepository",
-    "MemoryService",
+    "RawMemory",
     "StoreRequest",
+    "MemoryRepository",
+    "RawMemoryRepository",
+    "MemoryService",
     "ValidationError",
 ]
 
