@@ -7,7 +7,9 @@ generation, and limit checks live here so every adapter gets the same rules.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from uuid_utils import uuid7
@@ -21,6 +23,17 @@ from identity_storage.service.validation import ValidationError, validate_payloa
 
 RECALL_LIMIT_MAX = 500
 SEARCH_LIMIT_MAX = 200
+
+
+@dataclass(frozen=True, slots=True)
+class Classification:
+    """A single classification extracted from a raw memory."""
+
+    memory_type: MemoryType
+    content: str
+    tags: Sequence[str] = ()
+    payload: dict[str, Any] | None = None
+    confidence: float = 1.0
 
 
 class MemoryService:
@@ -114,3 +127,48 @@ class MemoryService:
         if self._raw_repo is None:
             return 0
         return self._raw_repo.mark_processed(memory_ids)
+
+    def classify_raw(
+        self,
+        raw_id: UUID,
+        classifications: Sequence[Classification],
+    ) -> list[MemoryRecord]:
+        """Store typed memories from classifications and mark the raw as processed.
+
+        Returns the stored ``MemoryRecord`` objects. Raises ``ValidationError``
+        if the raw memory does not exist or is already processed.
+        """
+        if self._raw_repo is None:
+            raise ValidationError("raw memory repository not configured")
+
+        raw = self._raw_repo.get(raw_id)
+        if raw is None:
+            raise ValidationError(f"raw memory {raw_id} not found")
+        if raw.is_processed:
+            raise ValidationError(f"raw memory {raw_id} already processed")
+
+        raw_payload = dict(raw.payload) if raw.payload else {}
+        raw_session_id = raw_payload.get("session_id", "unknown")
+        if not isinstance(raw_session_id, str):
+            raw_session_id = "unknown"
+
+        stored: list[MemoryRecord] = []
+        for cls in classifications:
+            payload = dict(cls.payload) if cls.payload else {}
+            payload.setdefault("session_id", raw_session_id)
+            payload.setdefault("parent_id", str(raw_id))
+
+            record = self.store(
+                StoreRequest(
+                    memory_type=cls.memory_type,
+                    content=cls.content,
+                    tags=list(cls.tags),
+                    payload=payload,
+                    confidence=cls.confidence,
+                    source="consolidation",
+                )
+            )
+            stored.append(record)
+
+        self._raw_repo.mark_processed([raw_id])
+        return stored

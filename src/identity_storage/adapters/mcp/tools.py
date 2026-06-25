@@ -12,6 +12,8 @@ from uuid import UUID
 from mcp.server.fastmcp import FastMCP
 
 from identity_storage.adapters.mcp.schemas import (
+    MemoryClassifyInput,
+    MemoryClassifyOutput,
     MemoryGetRawOutput,
     MemoryMarkProcessedInput,
     MemoryRecallInput,
@@ -24,6 +26,7 @@ from identity_storage.adapters.mcp.schemas import (
     to_output,
 )
 from identity_storage.model.store_request import StoreRequest
+from identity_storage.service.memory_service import Classification
 from identity_storage.service.validation import ValidationError
 
 
@@ -111,10 +114,10 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
         description=(
             "Retrieve unprocessed raw memories from previous sessions. Call "
             "this when memory_search reports unprocessed_count > 0. Read each "
-            "raw memory, classify it: extract facts as semantic memories, "
-            "procedures as procedural memories, events as episodic memories. "
-            "Store each classification with memory_store, then call "
-            "memory_mark_processed with the raw IDs you handled."
+            "raw memory, classify it with memory_classify (facts → semantic, "
+            "procedures → procedural, events → episodic). If a raw memory "
+            "contains nothing worth keeping, dismiss it with "
+            "memory_mark_processed."
         ),
     )
     def memory_get_raw() -> MemoryGetRawOutput:
@@ -135,11 +138,39 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
         )
 
     @mcp.tool(
+        name="memory_classify",
+        description=(
+            "Classify a raw memory into typed memories and mark it processed "
+            "in one step. Pass the raw_id and the typed memories you extracted "
+            "(facts → semantic, procedures → procedural, events → episodic). "
+            "session_id and parent_id are filled in automatically. The raw "
+            "memory is marked as processed after the typed memories are stored."
+        ),
+    )
+    def memory_classify(input: MemoryClassifyInput) -> MemoryClassifyOutput:
+        service = service_factory()  # type: ignore[operator]
+        classifications = [
+            Classification(
+                memory_type=c.memory_type,
+                content=c.content,
+                tags=list(c.tags),
+                confidence=c.confidence,
+            )
+            for c in input.classifications
+        ]
+        try:
+            stored = service.classify_raw(UUID(input.raw_id), classifications)
+        except ValidationError as e:
+            raise ValueError(str(e)) from e
+        return MemoryClassifyOutput(stored_ids=[str(r.id) for r in stored])
+
+    @mcp.tool(
         name="memory_mark_processed",
         description=(
-            "Mark raw memories as processed after you have classified them "
-            "into typed memories. Pass the raw memory IDs you handled. This "
-            "prevents them from showing up in future memory_search results."
+            "Dismiss raw memories without classifying them. Use when a raw "
+            "memory contains nothing worth keeping (idle chat, greetings, "
+            "trivial responses). Pass the raw IDs to mark as processed. For "
+            "useful raw memories, use memory_classify instead."
         ),
     )
     def memory_mark_processed(input: MemoryMarkProcessedInput) -> str:

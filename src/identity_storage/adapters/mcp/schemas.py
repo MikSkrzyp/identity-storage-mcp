@@ -128,6 +128,40 @@ class MemoryMarkProcessedInput(BaseModel):
     ids: Annotated[list[str], Field(description="Raw memory IDs to mark as processed.")]
 
 
+class ClassificationItem(BaseModel):
+    memory_type: Annotated[
+        MemoryType,
+        Field(description="Type to classify this memory as."),
+    ]
+    content: Annotated[
+        str,
+        Field(description="The classified memory text, concise and self-contained."),
+    ]
+    tags: Annotated[
+        list[str],
+        Field(default_factory=list, description="Tags for this memory."),
+    ]
+    confidence: Annotated[
+        float,
+        Field(default=1.0, ge=0.0, le=1.0, description="How reliable this memory is."),
+    ]
+
+
+class MemoryClassifyInput(BaseModel):
+    raw_id: Annotated[
+        str,
+        Field(description="ID of the raw memory to classify and mark processed."),
+    ]
+    classifications: Annotated[
+        list[ClassificationItem],
+        Field(description="Typed memories extracted from the raw memory."),
+    ]
+
+
+class MemoryClassifyOutput(BaseModel):
+    stored_ids: list[str]
+
+
 def to_output(r: MemoryRecord) -> MemoryRecordOut:
     """Convert a domain ``MemoryRecord`` to the MCP-facing Pydantic model."""
     return MemoryRecordOut(
