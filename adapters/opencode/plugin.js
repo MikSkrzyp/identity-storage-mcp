@@ -1,4 +1,6 @@
 export const IdentityStoragePlugin = async ({ client, $ }) => {
+  let processedMessageCount = 0
+
   return {
     event: async ({ event }) => {
       // SessionStart equivalent: inject unprocessed raw memories
@@ -15,18 +17,22 @@ export const IdentityStoragePlugin = async ({ client, $ }) => {
         }
       }
 
-      // Stop equivalent: store session transcript as raw memories
+      // Stop equivalent: store ONLY new messages since last ingest
       if (event.type === "session.idle") {
         try {
           const sessionId = event.properties.sessionID || event.properties.info?.id
           if (!sessionId) return
 
-          // Fetch messages from the session
           const messages = await client.session.messages({ path: { id: sessionId } })
           if (!messages.data || messages.data.length === 0) return
 
-          // Build transcript-like payload for the ingestor
-          const transcript = messages.data.map((entry) => {
+          // Only process messages we haven't seen yet
+          const newMessages = messages.data.slice(processedMessageCount)
+          processedMessageCount = messages.data.length
+
+          if (newMessages.length === 0) return
+
+          const transcript = newMessages.map((entry) => {
             const role = entry.info?.role || "unknown"
             const parts = entry.parts || []
             const text = parts
@@ -39,7 +45,6 @@ export const IdentityStoragePlugin = async ({ client, $ }) => {
 
           if (transcript.length === 0) return
 
-          // Write transcript to a temp file and pass to ingestor
           const tmpFile = `/tmp/identity-storage-opencode-${sessionId}.jsonl`
           const lines = transcript.map((m) => JSON.stringify(m)).join("\n")
           await $`echo ${lines} > ${tmpFile}`
