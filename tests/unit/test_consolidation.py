@@ -181,10 +181,12 @@ def test_get_unprocessed_returns_oldest_first(service: MemoryService) -> None:
     assert result[1].id == new.id
 
 
-def test_mark_processed_dismisses_without_classifying(service: MemoryService) -> None:
+def test_classify_with_empty_classifications_dismisses(service: MemoryService) -> None:
     raw = _make_raw(content="User: hi\nAssistant: hello")
     service.store_raw(raw)
 
-    count = service.mark_processed([raw.id])
-    assert count == 1
+    stored = service.classify_raw(raw.id, [])
+
+    assert stored == []
+    assert service.count_unprocessed_raw() == 0
     assert service.count_unprocessed_raw() == 0

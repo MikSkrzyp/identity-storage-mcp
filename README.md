@@ -26,6 +26,12 @@ Or run it without installing:
 uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp.git identity-storage-mcp
 ```
 
+This installs three console scripts:
+
+- `identity-storage-mcp` — the MCP server (agent calls tools through it)
+- `identity-storage-ingest` — reads session transcripts on Stop hook
+- `identity-storage-consolidate` — injects raw memories on SessionStart hook
+
 ## Configure Claude Code
 
 ### 1. Add the MCP server
@@ -36,17 +42,27 @@ claude mcp add identity-storage -s user -- uvx --from git+https://github.com/Mik
 
 This makes three memory tools available to the agent in every project.
 
-### 2. Add the Stop hook (auto-store)
+### 2. Add the hooks (auto-store + auto-consolidate)
 
-Without this, the agent can recall memories but nothing gets stored
-automatically. The hook reads the session transcript when a conversation ends
-and saves each turn as an episodic memory.
+Two hooks work together: `Stop` saves the session as raw memories, `SessionStart`
+injects unprocessed raw memories into the agent's context at the start of the
+next session so the agent can classify them.
 
 Add to `~/.claude/settings.json`:
 
 ```json
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-consolidate"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -61,18 +77,17 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
-That's it. From now on every Claude Code session is remembered.
-
 ## Tools
 
-The agent sees three tools, each scoped by `memory_type` (`episodic`,
+The agent sees four tools, each scoped by `memory_type` (`episodic`,
 `semantic`, `procedural`, `personality`, `emotional`):
 
-| Tool           | Purpose                                              |
-| -------------- | ---------------------------------------------------- |
-| `memory_search`| Full-text search via FTS5 — call at the start of a turn |
-| `memory_recall`| Browse by type, tags, and time window (newest first) |
-| `memory_store` | Manually persist a memory (rarely needed — the Stop hook handles storage) |
+| Tool             | Purpose                                                       |
+| ---------------- | ------------------------------------------------------------- |
+| `memory_search`  | Full-text search via FTS5 — call at the start of every turn   |
+| `memory_classify`| Classify raw memories into typed + mark processed (or dismiss)|
+| `memory_store`   | Manually persist a memory (rarely needed — hooks handle storage) |
+| `memory_recall`  | Browse by type, tags, and time window (newest first)          |
 
 See [docs/usage.md](docs/usage.md) for the full input/output schemas.
 
