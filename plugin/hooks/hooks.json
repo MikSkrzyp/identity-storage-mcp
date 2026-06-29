@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-consolidate"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+          }
+        ]
+      }
+    ]
+  }
+}

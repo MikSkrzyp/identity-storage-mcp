@@ -1,0 +1,16 @@
+{
+  "name": "identity-storage",
+  "displayName": "Identity Storage — Long-term Memory",
+  "version": "0.1.0",
+  "description": "Portable, auditable long-term memory for AI agents. Backed by local SQLite. Auto-stores sessions and consolidates raw memories into typed knowledge.",
+  "author": {
+    "name": "MikSkrzyp",
+    "url": "https://github.com/MikSkrzyp"
+  },
+  "repository": "https://github.com/MikSkrzyp/identity-storage-mcp",
+  "homepage": "https://github.com/MikSkrzyp/identity-storage-mcp",
+  "license": "MIT",
+  "keywords": ["memory", "mcp", "ai", "agent", "sqlite", "long-term-memory"],
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./mcp.json"
+}

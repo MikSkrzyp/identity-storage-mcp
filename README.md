@@ -34,21 +34,26 @@ This installs three console scripts:
 
 ## Configure Claude Code
 
-### 1. Add the MCP server
+### Option A: Plugin (recommended — one command)
+
+```bash
+claude plugin add MikSkrzyp/identity-storage-mcp
+```
+
+That's it. The plugin bundles the MCP server, SessionStart hook (consolidate),
+and Stop hook (auto-store). No manual config needed.
+
+### Option B: Manual setup
+
+If you prefer to configure each piece yourself:
+
+**1. Add the MCP server:**
 
 ```bash
 claude mcp add identity-storage -s user -- uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-mcp
 ```
 
-This makes three memory tools available to the agent in every project.
-
-### 2. Add the hooks (auto-store + auto-consolidate)
-
-Two hooks work together: `Stop` saves the session as raw memories, `SessionStart`
-injects unprocessed raw memories into the agent's context at the start of the
-next session so the agent can classify them.
-
-Add to `~/.claude/settings.json`:
+**2. Add the hooks** (auto-store + auto-consolidate) to `~/.claude/settings.json`:
 
 ```json
 {

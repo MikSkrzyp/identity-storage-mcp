@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "identity-storage": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
+        "identity-storage-mcp"
+      ]
+    }
+  }
+}
