@@ -36,12 +36,16 @@ This installs three console scripts:
 
 ### Option A: Plugin (recommended — one command)
 
+Clone the repo and load the plugin:
+
 ```bash
-claude plugin add MikSkrzyp/identity-storage-mcp
+git clone https://github.com/MikSkrzyp/identity-storage-mcp.git
+claude --plugin-dir ./identity-storage-mcp/plugin
 ```
 
-That's it. The plugin bundles the MCP server, SessionStart hook (consolidate),
-and Stop hook (auto-store). No manual config needed.
+The plugin bundles the MCP server, SessionStart hook (consolidate), and Stop
+hook (auto-store). No manual config needed. To update, `git pull` and restart
+Claude Code.
 
 ### Option B: Manual setup
 
