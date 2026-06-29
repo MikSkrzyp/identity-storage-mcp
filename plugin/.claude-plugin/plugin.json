@@ -11,6 +11,5 @@
   "homepage": "https://github.com/MikSkrzyp/identity-storage-mcp",
   "license": "MIT",
   "keywords": ["memory", "mcp", "ai", "agent", "sqlite", "long-term-memory"],
-  "hooks": "./hooks/hooks.json",
   "mcpServers": "./mcp.json"
 }
