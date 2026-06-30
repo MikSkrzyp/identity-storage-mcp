@@ -7,13 +7,9 @@ service call → Pydantic output. No business logic here; that lives in
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from mcp.server.fastmcp import FastMCP
 
 from identity_storage.adapters.mcp.schemas import (
-    MemoryClassifyInput,
-    MemoryClassifyOutput,
     MemoryRecallInput,
     MemoryRecallOutput,
     MemorySearchInput,
@@ -23,12 +19,11 @@ from identity_storage.adapters.mcp.schemas import (
     to_output,
 )
 from identity_storage.model.store_request import StoreRequest
-from identity_storage.service.memory_service import Classification
 from identity_storage.service.validation import ValidationError
 
 
 def register_tools(mcp: FastMCP, service_factory: object) -> None:
-    """Register the four memory tools on ``mcp``.
+    """Register the three memory tools on ``mcp``.
 
     ``service_factory`` is a zero-arg callable returning a ``MemoryService``.
     Passed in rather than imported, so this module has no DB/service wiring.
@@ -52,41 +47,26 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
         return MemorySearchOutput(records=[to_output(r) for r in records])
 
     @mcp.tool(
-        name="memory_classify",
-        description=(
-            "Classify a raw memory into typed memories and mark it processed. "
-            "Pass the raw_id and the typed memories you extracted (facts → "
-            "semantic, procedures → procedural, events → episodic). session_id "
-            "and parent_id are filled in automatically. Pass an empty "
-            "classifications list to dismiss a trivial raw memory (idle chat, "
-            "greetings) without storing anything."
-        ),
-    )
-    def memory_classify(input: MemoryClassifyInput) -> MemoryClassifyOutput:
-        service = service_factory()  # type: ignore[operator]
-        classifications = [
-            Classification(
-                memory_type=c.memory_type,
-                content=c.content,
-                tags=list(c.tags),
-                confidence=c.confidence,
-            )
-            for c in input.classifications
-        ]
-        try:
-            stored = service.classify_raw(UUID(input.raw_id), classifications)
-        except ValidationError as e:
-            raise ValueError(str(e)) from e
-        return MemoryClassifyOutput(stored_ids=[str(r.id) for r in stored])
-
-    @mcp.tool(
         name="memory_store",
         description=(
-            "Persist a memory manually. Only use when the user explicitly "
-            "asks you to remember something. Regular turn storage is handled "
-            "automatically by the client's Stop hook. Episodic payload keys: "
-            "session_id, agent, task, outcome, parent_id, metadata. Returns "
-            "the new record id."
+            "Store a memory. Choose the type based on what you are saving:\n"
+            "\n"
+            "- episodic: an event that happened — 'fixed the login bug', "
+            "'user asked for a tic-tac-toe game', 'refactored auth module'. "
+            "Concrete actions and outcomes.\n"
+            "- semantic: a durable fact — 'user prefers Python 3.12', "
+            "'project uses pytest', 'auth uses JWT'. Knowledge that stays "
+            "true.\n"
+            "- procedural: a how-to — 'run tests with pytest -x', "
+            "'deploy via npm run build && rsync'. Steps to accomplish "
+            "something.\n"
+            "\n"
+            "Set confidence below 1.0 for inferences, assumptions, or guesses. "
+            "Use tags for filtering (e.g. project name, topic). Episodic "
+            "payload keys: session_id, agent, task, outcome, parent_id, "
+            "metadata. At session end, store multiple memories — one per "
+            "distinct thing worth remembering. Do not store idle chat, "
+            "greetings, or trivial responses."
         ),
     )
     def memory_store(input: MemoryStoreInput) -> MemoryStoreOutput:

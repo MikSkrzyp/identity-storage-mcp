@@ -1,21 +1,11 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-consolidate"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"Stop\", \"additionalContext\": \"Before ending the session, store what happened using memory_store. Classify each memory: episodic for events/actions, semantic for durable facts, procedural for how-tos. One memory per distinct thing worth remembering. Skip idle chat.\"}}'"
           }
         ]
       }

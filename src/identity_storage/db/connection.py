@@ -13,7 +13,7 @@ from typing import Final
 
 DEFAULT_DB_PATH: Final[Path] = Path.home() / ".identity-storage" / "memory.db"
 
-SCHEMA_VERSION: Final[int] = 2
+SCHEMA_VERSION: Final[int] = 3
 
 _SCHEMA_SQL_PATH = Path(__file__).parent.parent / "schemas" / "schema.sql"
 
@@ -55,6 +55,19 @@ def connect(db_path: Path) -> sqlite3.Connection:
 def _apply_schema(conn: sqlite3.Connection) -> None:
     schema_sql = _SCHEMA_SQL_PATH.read_text(encoding="utf-8")
     conn.executescript(schema_sql)
+    _drop_legacy_raw_memories(conn)
+
+
+def _drop_legacy_raw_memories(conn: sqlite3.Connection) -> None:
+    tables = {
+        row[0]
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    }
+    for table in ("raw_memories_fts", "raw_memories"):
+        if table in tables:
+            conn.execute(f"DROP TABLE IF EXISTS {table}")
+    for trigger in ("raw_ai", "raw_ad", "raw_au"):
+        conn.execute(f"DROP TRIGGER IF EXISTS {trigger}")
 
 
 def _record_schema_version(conn: sqlite3.Connection) -> None:
