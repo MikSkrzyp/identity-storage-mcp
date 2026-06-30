@@ -32,8 +32,10 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
     @mcp.tool(
         name="memory_search",
         description=(
-            "Search past memories by content. Call this at the start of every "
-            "turn with the user's prompt as query. Returns ranked results from "
+            "Search past memories by content. Call this when the user "
+            "references past work ('do you remember', 'last time', "
+            "'previously') or when you need context from a previous session. "
+            "Pass the user's prompt as query. Returns ranked results from "
             "FTS5. If empty, no memory is needed for this turn. For browsing "
             "by tags or time window, use memory_recall."
         ),
@@ -49,24 +51,25 @@ def register_tools(mcp: FastMCP, service_factory: object) -> None:
     @mcp.tool(
         name="memory_store",
         description=(
-            "Store a memory. Choose the type based on what you are saving:\n"
+            "Store a memory. You MUST call this after every non-trivial turn. "
+            "Choose the type based on what you are saving:\n"
             "\n"
-            "- episodic: an event that happened — 'fixed the login bug', "
-            "'user asked for a tic-tac-toe game', 'refactored auth module'. "
-            "Concrete actions and outcomes.\n"
-            "- semantic: a durable fact — 'user prefers Python 3.12', "
-            "'project uses pytest', 'auth uses JWT'. Knowledge that stays "
-            "true.\n"
-            "- procedural: a how-to — 'run tests with pytest -x', "
-            "'deploy via npm run build && rsync'. Steps to accomplish "
-            "something.\n"
+            "- episodic: an event that happened — 'fixed the login bug in "
+            "auth.py', 'user asked for a tic-tac-toe game', 'refactored auth "
+            "module to use JWT'. Concrete actions and outcomes.\n"
+            "- semantic: a durable fact that stays true — 'user prefers "
+            "Python 3.12', 'project uses pytest', 'auth uses JWT', 'user "
+            "communicates in Polish'. Knowledge about the user or project.\n"
+            "- procedural: a how-to with steps — 'run tests with pytest -x', "
+            "'deploy via npm run build && rsync', 'start dev server: python "
+            "-m backend.main'. Steps to accomplish something.\n"
             "\n"
             "Set confidence below 1.0 for inferences, assumptions, or guesses. "
             "Use tags for filtering (e.g. project name, topic). Episodic "
             "payload keys: session_id, agent, task, outcome, parent_id, "
-            "metadata. At session end, store multiple memories — one per "
-            "distinct thing worth remembering. Do not store idle chat, "
-            "greetings, or trivial responses."
+            "metadata. Store one memory per distinct thing. ALWAYS skip idle "
+            "chat, greetings, and trivial responses. Forgetting to store = "
+            "permanent loss of the session."
         ),
     )
     def memory_store(input: MemoryStoreInput) -> MemoryStoreOutput:

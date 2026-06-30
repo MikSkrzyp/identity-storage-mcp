@@ -26,76 +26,80 @@ Or run it without installing:
 uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp.git identity-storage-mcp
 ```
 
-This installs three console scripts:
+This installs one console script:
 
 - `identity-storage-mcp` — the MCP server (agent calls tools through it)
-- `identity-storage-ingest` — reads session transcripts on Stop hook
-- `identity-storage-consolidate` — injects raw memories on SessionStart hook
 
 ## Configure Claude Code
 
-### Option A: Plugin (recommended — one command)
-
-Clone the repo and load the plugin:
-
-```bash
-git clone https://github.com/MikSkrzyp/identity-storage-mcp.git
-claude --plugin-dir ./identity-storage-mcp/plugin
-```
-
-The plugin bundles the MCP server, SessionStart hook (consolidate), and Stop
-hook (auto-store). No manual config needed. To update, `git pull` and restart
-Claude Code.
-
-### Option B: Manual setup
-
-If you prefer to configure each piece yourself:
-
-**1. Add the MCP server:**
+### 1. Add the MCP server
 
 ```bash
 claude mcp add identity-storage -s user -- uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-mcp
 ```
 
-**2. Add the hooks** (auto-store + auto-consolidate) to `~/.claude/settings.json`:
+### 2. Add memory instructions to CLAUDE.md
+
+Add this to `~/.claude/CLAUDE.md` (global, all projects) or your project's
+`CLAUDE.md`:
+
+```markdown
+# Memory — MANDATORY
+
+identity-storage MCP is connected. Follow these rules EVERY session:
+
+1. SEARCH: Call memory_search when the user references past work or you need
+   context from previous sessions. Pass the user's prompt as query.
+
+2. STORE: Call memory_store after every non-trivial turn:
+   - episodic: events/actions (fixed bug, refactored module, user asked for X)
+   - semantic: durable facts (user preferences, project info, tech stack)
+   - procedural: how-tos (commands, steps, procedures)
+   One memory per distinct thing. Skip idle chat.
+
+3. SESSION END: When the user says exit/quit, store anything not yet saved.
+
+Forgetting to store = permanent loss of the session.
+Forgetting to search = working blind.
+```
+
+## Configure opencode
+
+### 1. Add the MCP server
+
+Add to `~/.config/opencode/opencode.jsonc`:
 
 ```json
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-consolidate"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uvx --from git+https://github.com/MikSkrzyp/identity-storage-mcp identity-storage-ingest --agent claude-code"
-          }
-        ]
-      }
-    ]
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "identity-storage": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--from",
+        "git+https://github.com/MikSkrzyp/identity-storage-mcp",
+        "identity-storage-mcp"
+      ]
+    }
   }
 }
 ```
 
+### 2. Add memory instructions to AGENTS.md
+
+Add the same memory instructions (from the Claude Code section above) to
+`~/.config/opencode/AGENTS.md` (global) or your project's `AGENTS.md`.
+
 ## Tools
 
-The agent sees four tools, each scoped by `memory_type` (`episodic`,
+The agent sees three tools, each scoped by `memory_type` (`episodic`,
 `semantic`, `procedural`, `personality`, `emotional`):
 
 | Tool             | Purpose                                                       |
 | ---------------- | ------------------------------------------------------------- |
-| `memory_search`  | Full-text search via FTS5 — call at the start of every turn   |
-| `memory_classify`| Classify raw memories into typed + mark processed (or dismiss)|
-| `memory_store`   | Manually persist a memory (rarely needed — hooks handle storage) |
+| `memory_search`  | Full-text search via FTS5 — when the user references past work |
+| `memory_store`   | Store a memory with type classification (episodic/semantic/procedural) |
 | `memory_recall`  | Browse by type, tags, and time window (newest first)          |
 
 See [docs/usage.md](docs/usage.md) for the full input/output schemas.
@@ -139,11 +143,10 @@ exactly what is in the file.
 
 ## Other clients
 
-Currently only Claude Code is supported (MCP server + Stop hook ingestor).
-Support for Codex, opencode, Cursor, and others is coming soon — the
-ingestor interface is already in place
-([`adapters/ingest/base.py`](src/identity_storage/adapters/ingest/base.py));
-each client just needs a transcript parser.
+Claude Code and opencode are supported. Both use the same MCP server and
+the same memory database. For other MCP-compatible clients (Codex, Cursor,
+etc.), add the MCP server per their docs and add the memory instructions to
+their equivalent of CLAUDE.md (e.g. `.cursorrules` for Cursor).
 
 ## Documentation
 
